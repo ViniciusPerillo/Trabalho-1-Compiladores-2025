@@ -84,7 +84,7 @@ class Jander(Lexer):
     VARIAVEL = 4
     NUMINT = 5
     NUMREAL = 6
-    LITERAL = 7
+    STRING = 7
     OP_REL = 8
     OP_ARIT = 9
     DELIM = 10
@@ -100,11 +100,11 @@ class Jander(Lexer):
             "':'", "'('", "')'", "','" ]
 
     symbolicNames = [ "<INVALID>",
-            "WS", "COMMENT", "PRES", "VARIAVEL", "NUMINT", "NUMREAL", "LITERAL", 
+            "WS", "COMMENT", "PRES", "VARIAVEL", "NUMINT", "NUMREAL", "STRING", 
             "OP_REL", "OP_ARIT", "DELIM", "ABREPAR", "FECHAPAR", "VIRGULA" ]
 
     ruleNames = [ "WS", "COMMENT", "PRES", "VARIAVEL", "NUMINT", "NUMREAL", 
-                  "LITERAL", "OP_REL", "OP_ARIT", "DELIM", "ABREPAR", "FECHAPAR", 
+                  "STRING", "OP_REL", "OP_ARIT", "DELIM", "ABREPAR", "FECHAPAR", 
                   "VIRGULA" ]
 
     grammarFileName = "Jander.g4"

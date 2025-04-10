@@ -5,7 +5,7 @@ PRES : 'algoritmo' | 'fim_algoritmo' | 'declare' | 'leia' | 'escreva' | 'inteiro
 VARIAVEL : ('a'..'z' | 'A'..'Z') ('a'..'z' | 'A'..'Z' | '0'..'9')*;
 NUMINT : ('+'|'-')?('0'..'9')+;
 NUMREAL : ('+'|'-')?('0'..'9')+ ('.' ('0'..'9')+)?;
-LITERAL : '"'.*?'"';
+STRING : '"'.*?'"';
 OP_REL : '>' | '>=' | '<' | '<=' | '<>' | '<-';
 OP_ARIT : '+' | '-' | '*' | '/';
 DELIM : ':';

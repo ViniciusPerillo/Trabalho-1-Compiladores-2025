@@ -9,10 +9,10 @@ def main(argv):
 
     while token.type != Token.EOF:
         nome_token = Jander.symbolicNames[token.type]
-        if nome_token in ['VARIAVEL', 'NUMINT', 'NUMREAL', 'PRES', 'LITERAL']:
-            print(f"<{nome_token}, {token.text}>")
+        if nome_token in ['VARIAVEL', 'NUMINT', 'NUMREAL', 'PRES', 'STRING']:
+            print(f"<{nome_token}, '{token.text}'>")
         else:
-            print(f"<{nome_token}>")
+            print(f"<{nome_token}, '{token.text}'>")
 
         token = lexer.nextToken()
 

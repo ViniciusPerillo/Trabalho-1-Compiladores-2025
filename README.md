@@ -6,15 +6,9 @@
 
 # T1
 
-## Como funciona?
-
-Pipipipopopo
-
 ## Bibliotecas
 
-Este trabalho foi feito inteiramente em Python, com as seguintes bibliotecas:
-
-### Antlr 
+Este trabalho foi feito inteiramente em Python, usando a bibioteca **Antlr**:
 
 Antlr é uma biblioteca usada para criar e interpretar linguagens, como se fosse um motor de parser (analisador de texto). Você escreve a gramática da linguagem e o Antlr gera código que entende e processa textos seguindo essa gramática.
 
@@ -22,12 +16,18 @@ Baixar em: [https://www.antlr.org/download.html](url) a versão 4.13.2. Após is
 
 > java -jar ./antlr-4.13.2-complete.jar -Dlanguage=Python3 Jander.g4
 
-Isto vai fazer com que a biblioteca crie o arquivo Jander.py segundo Jander.g4.
+Isto vai fazer com que a biblioteca crie o analisador Jander.py segundo a Gramática Léxica de Jander.g4.
 
+## Configurações
+
+* Python - Versão mais atualizada disponível
+* Java - Versão mais atualizada disponível
 
 ## Como executar
 
-Seila maculo va se foder
+Aṕos executar o comando da biblioteca, basta executar:
+
+> python main.py <input.txt> <output.txt>
 
 
 

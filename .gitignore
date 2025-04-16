@@ -1,4 +1,6 @@
 .venv
 testes
 casos_de_teste
-__pycache__
+__pycache__/
+anltr.jar
+output.txt

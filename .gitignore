@@ -4,3 +4,7 @@ casos_de_teste
 __pycache__/
 anltr.jar
 output.txt
+Jander.interp
+Jander.tokens
+output*
+Jander.py

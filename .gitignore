@@ -1,2 +1,4 @@
 .venv
 testes
+casos_de_teste
+__pycache__

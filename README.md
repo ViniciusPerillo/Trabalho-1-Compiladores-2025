@@ -1,4 +1,4 @@
-# Trabalhos Complicadores
+# Trabalhos Compiladores
 
 * Ana Ellen Deodato da Silva, 800206
 * Gabriel Vianna Spolon, 811649

@@ -27,7 +27,12 @@ Isto vai fazer com que a biblioteca crie o analisador Jander.py segundo a Gramá
 
 Aṕos executar o comando da biblioteca, basta executar:
 
-> python main.py <input.txt> <output.txt>
+> python3 main.py <input.txt> <output.txt>
 
+# T2
 
+Este trabalho também foi feito inteiramente em Python, usando a biblioteca Antlr.
 
+Ela continua sendo usada para gerar automaticamente os analisadores léxico e agora também o sintático a partir da gramática da linguagem LA (Linguagem Algorítmica), fornecida pelo professor.
+
+A execução e configurações deste trabalho são as mesmas que do T1.

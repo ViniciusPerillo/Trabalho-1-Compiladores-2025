@@ -43,12 +43,18 @@ class JanderLexerError(ErrorListener):
         
     
 class JanderParserError(ErrorListener):
+    '''
+    Classe que herda ErrorListener para alaterar as mensagens de erro do parser
+    Inputs:
+        output: StringIO -> arquivo IO que o print ira escrever
+    '''
     def __init__(self, output: StringIO):
         super().__init__()
         self.out = output
     
     def syntaxError(self, recognizer, offendingSymbol, line, column, msg, e):
         print(msg)
+        # Trata o erro específico de EOF
         if 'EOF' in msg:
             print(f'Linha {line}: erro sintatico proximo a EOF', flush= True, file= self.out)
         elif 'missing' in msg:
@@ -71,12 +77,13 @@ def main(argv):
     output_path = argv[2]
 
     with open(output_path, 'w', encoding='utf-8') as out:
+        # Listener Lexer
         lexer = JanderLexer(input_stream)
         lexer.removeErrorListeners()
         lexer.addErrorListener(JanderLexerError(out))
 
         token_stream = CommonTokenStream(lexer)
-
+        # Listener Parser
         parser = JanderParser(token_stream)
         parser.removeErrorListeners()
         parser.addErrorListener(JanderParserError(out))
@@ -92,7 +99,7 @@ def main(argv):
 
         
 
-
+# Código para teste em massa de todos os casos
 def tester(argv):
     output = argv[2]
     saida_correta = argv[1].split('entrada')
@@ -106,11 +113,10 @@ def tester(argv):
         if corr[idx] != out_lines[idx]:
             print(f'{idx}: linha deveria ser {corr[idx]} ao inves de {out_lines[idx]}')
             raise KeyboardInterrupt
-        
-
+            
+# Código para teste em massa de todos os casos
 def run():
-    #root = 'C:\\UFSCAR\\COMPILADORES\\T2\\2.casos_teste_t2\\entrada'
-    root = '/home/ana-ellen/Trabalho-1-Compiladores-2025/casos_teste_t2/entrada/'
+    #root = '<path>'
     for case in sorted(os.listdir(root)):
         args = [None, root + case, 'output.txt']
         print(case)

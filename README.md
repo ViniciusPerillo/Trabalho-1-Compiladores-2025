@@ -14,7 +14,7 @@ Antlr é uma biblioteca usada para criar e interpretar linguagens, como se fosse
 
 Baixar em: [https://www.antlr.org/download.html](url) a versão 4.13.2. Após isso, é preciso colocar o arquivo na pasta do projeto e rodar:
 
-> java -jar ./antlr-4.13.2-complete.jar -Dlanguage=Python3 Jander.g4
+> java -jar ./antlr-4.13.2-complete.jar -Dlanguage=Python3 -visitor Jander.g4
 
 Isto vai fazer com que a biblioteca crie o analisador Jander.py segundo a Gramática Léxica de Jander.g4.
 

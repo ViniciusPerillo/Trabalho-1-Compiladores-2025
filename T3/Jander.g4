@@ -28,7 +28,7 @@ VETOR: '[' | ']';
 
 // -------------------- SINTÁTICO --------------------
 
-header
+init
     : declaracoes 'algoritmo' corpo 'fim_algoritmo' EOF;
 
 declaracoes
@@ -41,10 +41,10 @@ declaracao_local
     : 'declare' variavel | 'constante' IDENT ':' tipo_basico '=' valor_constante | 'tipo' IDENT ':' tipo;
 
 variavel
-    : identificador (',' identificador)* ':' tipo;
+    : identificador0=identificador (',' outrosIdentificadores=identificador)* ':' tipo;
 
 identificador
-    : IDENT ('.' IDENT)* dimensao;
+    : ident0=IDENT ('.' outrosIdents=IDENT)* dimensao;
 
 dimensao
     : ('[' exp_aritmetica ']')*;
@@ -84,7 +84,7 @@ cmd
     : cmdLeia | cmdEscreva | cmdSe | cmdCaso | cmdPara | cmdEnquanto | cmdFaca | cmdAtribuicao | cmdChamada | cmdRetorne;
 
 cmdLeia
-    : 'leia' '(' '^'? identificador (',' '^'? identificador)* ')';
+    : 'leia' '(' '^'? identificador0= identificador (',' '^'? outrosIdentificadores=identificador)* ')';
 
 cmdEscreva
     : 'escreva' '(' expressao (',' expressao)* ')';

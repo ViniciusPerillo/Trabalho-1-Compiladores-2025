@@ -5,6 +5,7 @@ from io import TextIOBase
 from antlr4 import *
 from JanderLexer import JanderLexer
 from JanderParser import JanderParser
+from VisitorInterp import VisitorInterp
 from antlr4.error.ErrorListener import ErrorListener
 from io import StringIO
 
@@ -38,8 +39,7 @@ class JanderLexerError(ErrorListener):
             print(f'Linha {line}: {re.search(r"'(.*?)'", msg).group(1)} - simbolo nao identificado', flush= True, file= self.out)
             #print(msg)
         
-        print("Fim da compilacao", file=self.out)
-        sys.exit()
+        raise InterromperParsing
         
     
 class JanderParserError(ErrorListener):
@@ -66,9 +66,7 @@ class JanderParserError(ErrorListener):
         elif 'alternative' in msg:
             print(f'Linha {line}: erro sintatico proximo a {re.search(r"input '(.*?)'", msg).group(1)[-1]}', flush= True, file= self.out)
             
-        print("Fim da compilacao", file=self.out)
-        
-        sys.exit()
+        raise InterromperParsing
 
 
 
@@ -87,15 +85,21 @@ def main(argv):
         parser = JanderParser(token_stream)
         parser.removeErrorListeners()
         parser.addErrorListener(JanderParserError(out))
-
+        
         try:
-            parser.header()
+            tree = parser.init()
         except InterromperParsing:
-            # Interrompe análise após o primeiro erro
-            pass
-        except:
-            # Ignora outras exceções do ANTLR
-            pass
+            print("Fim da compilacao", file=out)
+            sys.exit()
+
+
+        if parser.getNumberOfSyntaxErrors() > 0:
+            print("syntax errors")
+        else:
+            vinterp = VisitorInterp(out)
+            vinterp.visit(tree)
+        
+        print("Fim da compilacao", file=out)
 
         
 
@@ -116,7 +120,7 @@ def tester(argv):
             
 # Código para teste em massa de todos os casos
 def run():
-    #root = '<path>'
+    root = 'D:\\gitRep\\Trabalho-1-Compiladores-2025\\T3\\casos_teste\\'
     for case in sorted(os.listdir(root)):
         args = [None, root + case, 'output.txt']
         print(case)

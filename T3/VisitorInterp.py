@@ -31,7 +31,7 @@ class VisitorInterp(JanderVisitor):
 
         elif ctx.tipo() != None:
             try: 
-                self.simbolos.verifSimbolo(ctx.IDENT().getText())
+                self.simbolos.verifSimbolNesseEscopo(ctx.IDENT().getText())
             except IdentificadorJaUtilizadoNoEscopo:
                  #inserir mensagem de erro
                 pass
@@ -43,14 +43,14 @@ class VisitorInterp(JanderVisitor):
 
         for ident in idents:
             try:
-                self.simbolos.verifSimbolo(ident.getText())
+                self.simbolos.verifSimbolNesseEscopo(ident.getText())
             except IdentificadorJaUtilizadoNoEscopo:
                 #inserir mensagem de erro
                 pass
             
             try:
-                self.simbolos.verifTipo(ctx.tipo().getText())
-            except TipoNaoDeclarado:
+                self.simbolos[ctx.tipo().getText()]
+            except IdentificadorNaoDeclarado:
                 #acessa a linha do token alvo
                 linha = ctx.tipo().tipo_estendido().tipo_basico_ident().IDENT().symbol.line
                 print(f'Linha {linha}: tipo {ctx.tipo().getText()} nao declarado', file= self.out)

@@ -8,8 +8,12 @@ class TipoNaoDeclarado(Exception):
     pass
 
 class Simbolos:
+    '''
+    Classe que armazena e faz verificações dos siumbolos nos diferentes escopos
+    '''
     def __init__(self):
         self.__escopos = []
+        self.__add_escopo()
         self.__tipos = ['literal', 'inteiro', 'real', 'logico']
     
     def add_escopo(self):
@@ -19,7 +23,6 @@ class Simbolos:
         self.__escopos.pop()
 
     def __getitem__(self, key):
-        
         for scp in reversed(self.__escopos):
             try:
                 return scp[key]

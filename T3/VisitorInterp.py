@@ -5,7 +5,10 @@ from JanderParser import JanderParser
 from JanderVisitor import JanderVisitor
 from Simbolos import *
 
-class VisitorInterp(JanderVisitor): 
+class VisitorInterp(JanderVisitor):
+    '''
+    Classe filha que herda o Visitor base
+    '''
     def __init__(self, output: StringIO):
         super().__init__()
         self.out = output
@@ -48,8 +51,10 @@ class VisitorInterp(JanderVisitor):
             try:
                 self.simbolos.verifTipo(ctx.tipo().getText())
             except TipoNaoDeclarado:
+                #acessa a linha do token alvo
                 linha = ctx.tipo().tipo_estendido().tipo_basico_ident().IDENT().symbol.line
                 print(f'Linha {linha}: tipo {ctx.tipo().getText()} nao declarado', file= self.out)
+                #salva a variavel com o tipo invalido
                 self.simbolos.add_var(ident.getText(), 'invalido', None, False)
 
             self.simbolos.add_var(ident.getText(), ctx.tipo().getText(), None, False)
@@ -64,10 +69,12 @@ class VisitorInterp(JanderVisitor):
             try:
                 self.simbolos[ident.getText()]
             except IdentificadorNaoDeclarado:
+                #acessa a linha do token alvo
                 linha = ident.ident0.line
                 print(f'Linha {linha}: identificador {ident.getText()} nao declarado', file= self.out)
 
     def visitCorpo(self, ctx):
+        # Adiciona o escopo da main ao codigo
         self.simbolos.add_escopo()
         children_ctx = self.visitChildren(ctx)
         self.simbolos.del_escopo()

@@ -96,6 +96,7 @@ def main(argv):
         if parser.getNumberOfSyntaxErrors() > 0:
             print("syntax errors")
         else:
+            # Chama o visitor
             vinterp = VisitorInterp(out)
             vinterp.visit(tree)
         

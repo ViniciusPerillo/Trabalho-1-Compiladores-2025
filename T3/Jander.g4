@@ -41,10 +41,10 @@ declaracao_local
     : 'declare' variavel | 'constante' IDENT ':' tipo_basico '=' valor_constante | 'tipo' IDENT ':' tipo;
 
 variavel
-    : identificador0=identificador (',' outrosIdentificadores=identificador)* ':' tipo;
+    : identificador (',' identificador)* ':' tipo ;
 
 identificador
-    : ident0=IDENT ('.' outrosIdents=IDENT)* dimensao;
+    : IDENT ('.' IDENT)* dimensao ;
 
 dimensao
     : ('[' exp_aritmetica ']')*;
@@ -183,7 +183,3 @@ op_logico_1
 op_logico_2 
     : 'e';
  
-
-
-
-

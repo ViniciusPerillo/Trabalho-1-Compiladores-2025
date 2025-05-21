@@ -1,77 +1,230 @@
 import sys
 from io import StringIO
 from antlr4 import *
-from JanderParser import JanderParser
 from JanderVisitor import JanderVisitor
 from Simbolos import *
 
+'''
+Classe filha que herda o Visitor base
+'''
 class VisitorInterp(JanderVisitor):
-    '''
-    Classe filha que herda o Visitor base
-    '''
     def __init__(self, output: StringIO):
         super().__init__()
         self.out = output
-    
+
     def visitInit(self, ctx):
         self.simbolos = Simbolos()
-
         return self.visitChildren(ctx)
     
+    '''
+    Mensagens de erro
+    '''
+    def error(self, line, msg, erro):
+        match erro:
+            # TipoNaoDeclarado
+            case 1: print(f"Linha {line}: tipo {msg} nao declarado", file=self.out)
+            # IdentificadorNaoDeclarado
+            case 2: print(f"Linha {line}: identificador {msg} nao declarado", file=self.out)
+            # IdentificadorJaUtilizadoNoEscopo
+            case 3: print(f"Linha {line}: identificador {msg} ja declarado anteriormente", file=self.out)
+            # AtribuicaoNaoCompativel
+            case 4: print(f"Linha {line}: atribuicao nao compativel para {msg}", file=self.out)
 
+    '''
+    Visitors
+    '''
     def visitDeclaracao_local(self, ctx):        
-        if ctx.valor_constante() != None:
-            try:    
-                self.simbolos.verifySymbol(ctx.IDENT().getText())
-            except IdentificadorJaUtilizadoNoEscopo:
-                #inserir mensagem de erro
-                pass
-            
-            self.simbolos.add_var(ctx.IDENT().getText(), ctx.tipo_basico().getText(), ctx.valor_constanter().getText(), True)
+        if ctx.IDENT():
+            ident = ctx.IDENT().getText()
+            tipo = ctx.tipo().getText() if ctx.tipo() else None
 
-        elif ctx.tipo() != None:
-            try: 
-                self.simbolos.verifSimbolNesseEscopo(ctx.IDENT().getText())
+            try:
+                self.simbolos.verifType(tipo)
+            except TipoNaoDeclarado:
+                self.error(ctx.start.line, tipo, 1)
+                tipo = 'indefinido'
+
+            try:
+                self.simbolos.verifSimbolNesseEscopo(ident)
             except IdentificadorJaUtilizadoNoEscopo:
-                 #inserir mensagem de erro
-                pass
+                self.error(ctx.start.line, ident, 2)
+
+            self.simbolos.add_var(ident, tipo, None, is_constante=False)
 
         return self.visitChildren(ctx)
     
     def visitVariavel(self, ctx):
-        idents =  [ctx.identificador0] + (ctx.outrosIdentificadores if ctx.outrosIdentificadores != None else [])
+        idents = ctx.identificador()
+        tipo = ctx.tipo().getText()
 
         for ident in idents:
             try:
                 self.simbolos.verifSimbolNesseEscopo(ident.getText())
             except IdentificadorJaUtilizadoNoEscopo:
-                #inserir mensagem de erro
+                self.error(ident.start.line, ident.getText(), 3)
                 pass
             
             try:
-                self.simbolos[ctx.tipo().getText()]
-            except IdentificadorNaoDeclarado:
-                #acessa a linha do token alvo
-                linha = ctx.tipo().tipo_estendido().tipo_basico_ident().IDENT().symbol.line
-                print(f'Linha {linha}: tipo {ctx.tipo().getText()} nao declarado', file= self.out)
-                #salva a variavel com o tipo invalido
-                self.simbolos.add_var(ident.getText(), 'invalido', None, False)
+                self.simbolos.verifType(tipo)
+            except TipoNaoDeclarado:
+                self.error(ctx.tipo().tipo_estendido().tipo_basico_ident().IDENT().symbol.line, tipo, 1)
+                tipo = 'invalido'
 
-            self.simbolos.add_var(ident.getText(), ctx.tipo().getText(), None, False)
+            self.simbolos.add_var(ident.getText(), tipo, None, False)
 
-    
         return self.visitChildren(ctx)
+    
+    #
+    def visitCmdAtribuicao(self, ctx):
+        ident = ctx.identificador().getText()
+
+        try:
+            simbolo = self.simbolos[ident]
+        except IdentificadorNaoDeclarado:
+            self.error(ctx.start.line, ident, 2)
+            return self.visitChildren(ctx)
+
+        expressaoTipo = self._avaliar_expressao(ctx.expressao())
+
+        if not self._tipos_compativeis(simbolo['tipo'], expressaoTipo):
+            self.error(ctx.start.line, ident, 4)
+        return self.visitChildren(ctx)
+    
 
     def visitCmdLeia(self, ctx):
-        idents =  [ctx.identificador0] + (ctx.outrosIdentificadores if ctx.outrosIdentificadores != None else [])
+        idents = ctx.identificador()
         
         for ident in idents:
             try:
                 self.simbolos[ident.getText()]
             except IdentificadorNaoDeclarado:
-                #acessa a linha do token alvo
-                linha = ident.ident0.line
-                print(f'Linha {linha}: identificador {ident.getText()} nao declarado', file= self.out)
+                self.error(ident.start.line, ident.getText(), 2)
+        return self.visitChildren(ctx)
+
+    def visitCmdEnquanto(self, ctx):
+        self._avaliar_expressao(ctx.expressao())
+        return self.visitChildren(ctx)
+
+    ###
+    def visitCmdEscreva(self, ctx):
+        for exp in ctx.expressao():
+            self._avaliar_expressao(exp)
+        return self.visitChildren(ctx)
+
+    ## Provavelmente aqui ou em Parcela precisa de correção
+    def _avaliar_expressao(self, ctx):        
+        termos = ctx.termo_logico()
+        for termo in termos:
+            tipo = self._avaliar_termo_logico(termo)
+            if tipo != 'logico':
+                return tipo
+        return 'logico'
+
+    def _avaliar_termo_logico(self, ctx):
+        fatores = ctx.fator_logico()
+        for fator in fatores:
+            tipo = self._avaliar_fator_logico(fator)
+            if tipo != 'logico':
+                return tipo
+        return 'logico'
+
+    def _avaliar_fator_logico(self, ctx):
+        return self._avaliar_parcela_logica(ctx.parcela_logica())
+
+    def _avaliar_parcela_logica(self, ctx):
+        if ctx.exp_relacional():
+            return self._avaliar_exp_relacional(ctx.exp_relacional())
+        return 'logico'
+
+
+    def _avaliar_exp_relacional(self, ctx):
+        exp_aritmeticas = ctx.exp_aritmetica()
+
+        if len(ctx.op_relacional()) == 0:
+            tipo_anterior = self._avaliar_exp_aritmetica(exp_aritmeticas[0])
+            for i, op in enumerate(ctx.op_relacional()):
+                tipo_atual = self._avaliar_exp_aritmetica(exp_aritmeticas[i + 1])
+                if not self._tipos_compativeis(tipo_anterior, tipo_atual):
+                    return 'indefinido'
+                tipo_anterior = tipo_atual
+            return tipo_anterior
+
+        return 'logico'
+
+    def _avaliar_exp_aritmetica(self, ctx):
+        tipos = [self._avaliar_termo(t) for t in ctx.termo()]
+        return self._tipo_dominante(tipos)
+
+    def _avaliar_termo(self, ctx):
+        tipos = [self._avaliar_fator(f) for f in ctx.fator()]
+        return self._tipo_dominante(tipos)
+
+    def _avaliar_fator(self, ctx):
+        tipos = [self._avaliar_parcela(p) for p in ctx.parcela()]
+        return self._tipo_dominante(tipos)
+
+    def _avaliar_parcela(self, ctx):
+        if ctx.parcela_nao_unario():
+            if ctx.parcela_nao_unario().CADEIA():
+                return 'literal'
+
+            if ctx.parcela_nao_unario().identificador():
+                ident = ctx.parcela_nao_unario().identificador().getText()
+                return self._tipo_identificador(ident, ctx)
+
+        if ctx.parcela_unario():
+            p = ctx.parcela_unario()
+            if p.IDENT():  
+                ident = p.IDENT().getText()
+                try:
+                    self.simbolos[ident.getText()]
+                except IdentificadorNaoDeclarado:
+                    self.error(ident.start.line, ident.getText(), 2)
+                return self._tipo_identificador(ident, ctx)
+            if p.NUM_INT():
+                return 'inteiro'
+            if p.NUM_REAL():
+                return 'real'
+            if p.expressao():
+                return self._avaliar_expressao(p.expressao(0))
+            if p.identificador():
+                ident = p.identificador().getText()
+                return self._tipo_identificador(ident, ctx)
+
+        return 'indefinido'
+
+    def _tipo_identificador(self, nome, ctx):
+        try:
+            simbolo = self.simbolos[nome]
+            return simbolo['tipo']
+        except IdentificadorNaoDeclarado:
+            self.error(ctx.start.line, nome, 2)
+            return 'indefinido'
+        
+    def _tipo_dominante(self, tipos):
+        tipos = [t for t in tipos if t != 'indefinido']
+        if not tipos:
+            return 'indefinido'
+        if 'real' in tipos:
+            return 'real'
+        if 'inteiro' in tipos:
+            return 'inteiro'
+        if 'logico' in tipos:
+            return 'logico'
+        if 'literal' in tipos:
+            return 'literal'
+        return tipos[0]
+
+
+
+    def _tipos_compativeis(self, tipo1, tipo2):
+        if 'indefinido' in (tipo1, tipo2):
+            return False
+        if tipo1 == tipo2:
+            return True
+        if {tipo1, tipo2}.issubset({'inteiro', 'real'}):
+            return True
+        return False
 
     def visitCorpo(self, ctx):
         # Adiciona o escopo da main ao codigo
@@ -80,5 +233,10 @@ class VisitorInterp(JanderVisitor):
         self.simbolos.del_escopo()
         return children_ctx
     
-    
-        
+'''
+O que faltaria para ficar completo:
+
+- Não consegue lidar com atribuições com variaveis 
+- Faltam alguns Cmd: caso, chamada, faca, retorne, se, ect. Mas tem o sufuciente para o T3
+
+'''

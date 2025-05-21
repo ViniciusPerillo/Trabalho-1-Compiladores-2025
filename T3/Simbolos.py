@@ -1,10 +1,13 @@
+class TipoNaoDeclarado(Exception):
+    pass
+
 class IdentificadorNaoDeclarado(Exception):
     pass
 
 class IdentificadorJaUtilizadoNoEscopo(Exception):
     pass
 
-class TipoNaoDeclarado(Exception):
+class AtribuicaoNaoCompativel(Exception):
     pass
 
 class Simbolos:
@@ -13,6 +16,7 @@ class Simbolos:
     '''
     def __init__(self):
         self.__escopos = []
+        self.__tipos = []
         self.__add_escopo()
         self.__add_tipo('literal', 'literal')
         self.__add_tipo('inteiro', 'inteiro')
@@ -54,6 +58,21 @@ class Simbolos:
             pass
         else:
             raise IdentificadorJaUtilizadoNoEscopo
+
+    '''
+    def verifSimbolNesseEscopo(self, simbolo: str):
+        try:
+            self.__escopos[-1][simbolo]
+        except KeyError:
+            pass
+        else:
+            raise IdentificadorJaUtilizadoNoEscopo
+    '''
+    def verifType(self, simbolo: str):
+        if(simbolo in self.__tipos):
+            pass
+        else:
+            raise TipoNaoDeclarado
 
 
     __add_escopo = add_escopo

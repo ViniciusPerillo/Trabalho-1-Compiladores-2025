@@ -1239,7 +1239,6 @@ class JanderParser ( Parser ):
 
 
 
-
     def registro(self):
 
         localctx = JanderParser.RegistroContext(self, self._ctx, self.state)

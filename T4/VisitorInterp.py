@@ -41,6 +41,7 @@ class VisitorInterp(JanderVisitor):
         if ctx.IDENT():
             ident = ctx.IDENT().getText()
             tipo = ctx.tipo().getText().lstrip('^') if ctx.tipo() else None
+            print(ident + " decl")
 
             try:
                 self.simbolos.verifType(tipo)
@@ -56,31 +57,49 @@ class VisitorInterp(JanderVisitor):
             if (ctx.tipo().getText().startswith("^")): tipo = "^" + tipo
 
             self.simbolos.add_var(ident, tipo, None, is_constante=False)
+            print(ident)
 
         return self.visitChildren(ctx)
     
     def visitVariavel(self, ctx):
         idents = ctx.identificador()
-        tipo = ctx.tipo().getText().lstrip('^')
+        tipo = self.visitTipo(ctx.tipo())
 
+        
         for ident in idents:
-            try:
-                self.simbolos.verifSimbolNesseEscopo(ident.getText())
-            except IdentificadorJaUtilizadoNoEscopo:
-                self.error(ident.start.line, ident.getText(), 3)
-                pass
-            
-            try:
-                self.simbolos.verifType(tipo)
-            except TipoNaoDeclarado:
-                self.error(ctx.tipo().tipo_estendido().tipo_basico_ident().IDENT().symbol.line, tipo, 1)
-                tipo = 'invalido'
+            print(ident.getText() + " var ")
+
+            # se for registro de registro
+            if isinstance(tipo, dict):
+                for campo, tipo_campo in tipo.items():
+                    nome_completo = f"{ident.getText()}.{campo}"
+                    try:
+                        self.simbolos.add_var(nome_completo, tipo_campo, None, False)
+                    except IdentificadorJaUtilizadoNoEscopo:
+                        self.error(self, ident.start.line, nome_completo, 3)
+
+                self.simbolos.add_tipo(ident, tipo)
+            # se não
+            else:
+                try:
+                    self.simbolos.verifSimbolNesseEscopo(ident.getText())
+                except IdentificadorJaUtilizadoNoEscopo:
+                    self.error(ident.start.line, ident.getText(), 3)
+                    pass
+                
+                try:
+                    self.simbolos.verifType(tipo)
+                except TipoNaoDeclarado:
+                    line = ctx.tipo().tipo_estendido().tipo_basico_ident().IDENT().symbol.line if ctx.tipo().tipo_estendido().tipo_basico_ident().IDENT().symbol.line else ctx.tipo().tipo_estendido().IDENT().symbol.line
+                    self.error(ctx.tipo().tipo_estendido().tipo_basico_ident().IDENT().symbol.line, tipo, 1)
+                    tipo = 'invalido'
 
             if (ctx.tipo().getText().startswith("^")): tipo = "^" + tipo
 
             self.simbolos.add_var(ident.getText(), tipo, None, False)
 
         return self.visitChildren(ctx)
+    
     
     #
     def visitCmdAtribuicao(self, ctx):
@@ -93,11 +112,9 @@ class VisitorInterp(JanderVisitor):
             return self.visitChildren(ctx)
 
         if (simbolo['tipo'].startswith("^")):
-            print(ctx.identificador().getText())
             if(ctx.PONTEIRO()):
                 try:
                     expressaoTipo = self._avaliar_expressao(ctx.expressao())
-                    print(simbolo['tipo'].lstrip('^') + '  1')
                     self._tipos_compativeis(simbolo['tipo'].lstrip('^'), expressaoTipo)
                 except AtribuicaoNaoCompativel:
                     self.error(ctx.start.line, '^' + ctx.identificador().getText(), 4)
@@ -108,7 +125,6 @@ class VisitorInterp(JanderVisitor):
                 else:
                     try:
                         expressao = self.simbolos[ctx.expressao().getText().lstrip('&')]
-                        print(expressao['tipo'] + '  2')
                         self._tipos_compativeis(simbolo['tipo'].lstrip('^'), expressao['tipo'])
 
                     except AtribuicaoNaoCompativel:
@@ -255,6 +271,17 @@ class VisitorInterp(JanderVisitor):
             return 'literal'
         return tipos[0]
 
+    def visitTipo(self, ctx):
+        if ctx.registro():
+            campos = {}
+            for var_ctx in ctx.registro().variavel():
+                tipo_campo = self.visitTipo(var_ctx.tipo())
+                for ident_ctx in var_ctx.identificador():
+                    nome_campo = self._get_nome_identificador(ident_ctx)
+                    campos[nome_campo] = tipo_campo
+            return campos 
+        else:
+            return ctx.getText()
 
     def _tipos_compativeis(self, tipo1, tipo2):
         if 'indefinido' in (tipo1, tipo2):
@@ -265,6 +292,10 @@ class VisitorInterp(JanderVisitor):
             return True
         
         raise AtribuicaoNaoCompativel
+
+    def _get_nome_identificador(self, ctx):
+        partes = [ident.getText() for ident in ctx.IDENT()]
+        return ".".join(partes)
 
     def visitCorpo(self, ctx):
         # Adiciona o escopo da main ao codigo

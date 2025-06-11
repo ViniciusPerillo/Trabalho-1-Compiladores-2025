@@ -5,6 +5,7 @@ from io import StringIO
 from antlr4 import *
 from Jander import Jander
 from antlr4.error.ErrorListener import ErrorListener
+import sys
 
 
 class JanderError(ErrorListener):
@@ -29,6 +30,8 @@ class JanderError(ErrorListener):
         # Trata outros erros de símbolo não reconhecido
         else:
             print(f'Linha {line}: {re.search(r"'(.*?)'", msg).group(1)} - simbolo nao identificado', file= self.out)
+        sys.exit()
+        
 
 def main(argv):
     '''
@@ -58,8 +61,7 @@ def main(argv):
             token = lexer.nextToken()
 
 
-if __name__ == '__main__':
-    main(sys.argv)
+
 
 # Funções usada para o teste do trabalho
 
@@ -78,7 +80,7 @@ def tester(argv):
         
 
 def run():
-    root = 'C:\\UFSCAR\\COMPILADORES\\Trabalho-1-Compiladores-2025\\testes\\entrada\\'
+    root = 'C:\\UFSCAR\\COMPILADORES\\Trabalho-1-Compiladores-2025\\T1\\testes\\entrada\\'
     for case in os.listdir(root):
         args = [None, root + case, 'output.txt']
         print(case)
@@ -87,5 +89,9 @@ def run():
         tester(args)
         print('\n\n\n\n\n')
 
-# if __name__ == '__main__':
-#     run()
+
+if __name__ == '__main__':
+    if len(sys.argv) > 1: 
+        main(sys.argv)
+    else:
+        run()

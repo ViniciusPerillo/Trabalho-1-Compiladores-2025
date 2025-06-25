@@ -84,9 +84,12 @@ class VisitorInterp(JanderVisitor):
             self.error(ctx.start.line, ident, 2)
             return self.visitChildren(ctx)
 
-        expressaoTipo = self._avaliar_expressao(ctx.expressao())
+        
 
-        if not self._tipos_compativeis(simbolo['tipo'], expressaoTipo):
+        try:
+            expressaoTipo = self._avaliar_expressao(ctx.expressao())
+            self._tipos_compativeis(simbolo['tipo'], expressaoTipo)
+        except AtribuicaoNaoCompativel:
             self.error(ctx.start.line, ident, 4)
         return self.visitChildren(ctx)
     
@@ -112,8 +115,13 @@ class VisitorInterp(JanderVisitor):
         return self.visitChildren(ctx)
 
     ## Provavelmente aqui ou em Parcela precisa de correção
-    def _avaliar_expressao(self, ctx):        
-        termos = ctx.termo_logico()
+    def _avaliar_expressao(self, ctx):  
+
+        termos = []
+        if isinstance(ctx, list):
+            for c in ctx: termos.extend(c.termo_logico())
+        else: termos = ctx.termo_logico()
+
         for termo in termos:
             tipo = self._avaliar_termo_logico(termo)
             if tipo != 'logico':
@@ -129,6 +137,7 @@ class VisitorInterp(JanderVisitor):
         return 'logico'
 
     def _avaliar_fator_logico(self, ctx):
+        sla = ctx.parcela_logica().getText()
         return self._avaliar_parcela_logica(ctx.parcela_logica())
 
     def _avaliar_parcela_logica(self, ctx):
@@ -138,21 +147,20 @@ class VisitorInterp(JanderVisitor):
 
 
     def _avaliar_exp_relacional(self, ctx):
-        exp_aritmeticas = ctx.exp_aritmetica()
+        tipos = [self._avaliar_exp_aritmetica(t) for t in ctx.exp_aritmetica()]
 
-        if len(ctx.op_relacional()) == 0:
-            tipo_anterior = self._avaliar_exp_aritmetica(exp_aritmeticas[0])
-            for i, op in enumerate(ctx.op_relacional()):
-                tipo_atual = self._avaliar_exp_aritmetica(exp_aritmeticas[i + 1])
-                if not self._tipos_compativeis(tipo_anterior, tipo_atual):
-                    return 'indefinido'
-                tipo_anterior = tipo_atual
-            return tipo_anterior
+        for idx, tipo in enumerate(tipos[1:]):
+            self._tipos_compativeis(tipos[idx], tipo)
 
-        return 'logico'
+        return tipos[0]
 
     def _avaliar_exp_aritmetica(self, ctx):
         tipos = [self._avaliar_termo(t) for t in ctx.termo()]
+
+        for idx, tipo in enumerate(tipos[1:]):
+            if not self._tipos_compativeis(tipos[idx], tipo):
+                raise AtribuicaoNaoCompativel
+        
         return self._tipo_dominante(tipos)
 
     def _avaliar_termo(self, ctx):
@@ -201,20 +209,20 @@ class VisitorInterp(JanderVisitor):
             self.error(ctx.start.line, nome, 2)
             return 'indefinido'
         
+    ## Precisa melhorar a logica
     def _tipo_dominante(self, tipos):
         tipos = [t for t in tipos if t != 'indefinido']
         if not tipos:
             return 'indefinido'
+        if 'logico' in tipos:
+            return 'logico'
         if 'real' in tipos:
             return 'real'
         if 'inteiro' in tipos:
             return 'inteiro'
-        if 'logico' in tipos:
-            return 'logico'
         if 'literal' in tipos:
             return 'literal'
         return tipos[0]
-
 
 
     def _tipos_compativeis(self, tipo1, tipo2):
@@ -224,7 +232,8 @@ class VisitorInterp(JanderVisitor):
             return True
         if {tipo1, tipo2}.issubset({'inteiro', 'real'}):
             return True
-        return False
+        
+        raise AtribuicaoNaoCompativel
 
     def visitCorpo(self, ctx):
         # Adiciona o escopo da main ao codigo

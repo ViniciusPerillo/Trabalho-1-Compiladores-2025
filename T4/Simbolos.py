@@ -28,6 +28,7 @@ class Simbolos:
         self.__add_tipo('inteiro', 'inteiro')
         self.__add_tipo('real', 'real')
         self.__add_tipo('logico', 'logico')
+        self.__add_tipo('registro', 'registro')
     
     def add_escopo(self):
         self.__escopos.append(dict())
@@ -54,8 +55,10 @@ class Simbolos:
                                                'valor': valor}}
         
     def add_tipo(self, nome_tipo: str, tipo: str):
-        self.__tipos.append(tipo)
+        self.__tipos.append(nome_tipo)
         self.__escopos[-1] |= {nome_tipo: {'tipo': tipo}}
+        
+    
 
     def verifSimbolNesseEscopo(self, simbolo: str):
         try:
@@ -63,6 +66,9 @@ class Simbolos:
         except KeyError:
             pass
         else:
+            raise IdentificadorJaUtilizadoNoEscopo
+        
+        if simbolo in self.__tipos:
             raise IdentificadorJaUtilizadoNoEscopo
 
     '''
@@ -79,6 +85,14 @@ class Simbolos:
             pass
         else:
             raise TipoNaoDeclarado
+        
+    def verifTypeNon(self, simbolo: str):
+        for escopo in self.__escopos:
+            print('*')
+            print(escopo)
+            if(simbolo in escopo): return escopo[simbolo]
+
+        return False
 
 
     __add_escopo = add_escopo

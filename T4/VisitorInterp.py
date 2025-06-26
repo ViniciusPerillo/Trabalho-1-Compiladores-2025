@@ -33,6 +33,10 @@ class VisitorInterp(JanderVisitor):
             case 5: print(f"Linha {line}: incompatibilidade de parametros na chamada de {msg}", file=self.out)
             # ComandoRetorneNaoPermitido
             case 6: print(f"Linha {line}: comando retorne nao permitido nesse escopo", file=self.out)
+            # Retorne incompativel
+            case 7: print(f"Linha {line}: comando retorne nao permitido nesse escopo", file=self.out)
+            # Tipos de paarametro incompativeis
+            case 8: print(f"Linha {line}: incompatibilidade de parametros na chamada de {msg}", file=self.out)
 
     '''
     Visitors
@@ -60,6 +64,44 @@ class VisitorInterp(JanderVisitor):
             print(ident)
 
         return self.visitChildren(ctx)
+    
+    def visitDeclaracao_global(self, ctx):
+        ident = ctx.IDENT().getText()
+        
+        if ctx.tipo_estendido():
+            tipo = ctx.tipo_estendido().getText()
+        else: 
+            tipo = None
+
+        params = ctx.parametros().parametro()
+
+        params_dict = {}
+
+        for param in params:
+            param_idents = param.identificador()
+            param_tipo = param.tipo_estendido().getText()
+
+            for param_ident in param_idents:
+                params_dict |= {param_ident.getText(): param_tipo}
+                
+        self.simbolos.add_func(ident, tipo, params_dict)
+        self.simbolos.add_escopo()
+
+        for param in params:
+            param_idents = param.identificador()
+            param_tipo = param.tipo_estendido().getText()
+
+            for param_ident in param_idents:
+                self.simbolos.add_var(param_ident.getText(), param_tipo, None, False)
+
+        try:
+            children_ctx = self.visitChildren(ctx)
+        except RetornoInside:
+            if tipo is None:
+                self.error(ctx, erro= 7)
+        self.simbolos.del_escopo()
+
+        return children_ctx
     
     def visitVariavel(self, ctx):
         idents = ctx.identificador()
@@ -156,10 +198,28 @@ class VisitorInterp(JanderVisitor):
         self._avaliar_expressao(ctx.expressao())
         return self.visitChildren(ctx)
 
+    def visitCmdSe(self, ctx):
+        self._avaliar_expressao(ctx.expressao())
+        return self.visitChildren(ctx)
+
     ###
     def visitCmdEscreva(self, ctx):
         for exp in ctx.expressao():
             self._avaliar_expressao(exp)
+        return self.visitChildren(ctx)
+
+    def visitCmdChamada(self, ctx):
+        ident = ctx.IDENT().getText()
+        exprs = ctx.expressao()
+
+        params = self.simbolos[ident]['params']
+
+        for idx, param in enumerate(params.values()):
+            try:
+                self._tipos_compativeis(self._avaliar_expressao(exprs[idx]), param, int2real= False)
+            except (AtribuicaoNaoCompativel, IndexError):
+                self.error(ctx.start.line, ident, 8)
+        
         return self.visitChildren(ctx)
 
     def _avaliar_expressao(self, ctx):  
@@ -229,13 +289,13 @@ class VisitorInterp(JanderVisitor):
 
         if ctx.parcela_unario():
             p = ctx.parcela_unario()
-            if p.IDENT():  
-                ident = p.IDENT().getText()
+            if p.cmdChamada():  
+                ident = p.cmdChamada().IDENT().getText()
                 try:
-                    self.simbolos[ident.getText()]
+                    self.simbolos[ident]
                 except IdentificadorNaoDeclarado:
                     self.error(ident.start.line, ident.getText(), 2)
-                return self._tipo_identificador(ident, ctx)
+                return self.simbolos[ident]['tipo']
             if p.NUM_INT():
                 return 'inteiro'
             if p.NUM_REAL():
@@ -244,6 +304,10 @@ class VisitorInterp(JanderVisitor):
                 return self._avaliar_expressao(p.expressao(0))
             if p.identificador():
                 ident = p.identificador().getText()
+                try:
+                    self.simbolos[ident]
+                except IdentificadorNaoDeclarado:
+                    self.error(ident.start.line, ident.getText(), 2)
                 return self._tipo_identificador(ident, ctx)
 
         return 'indefinido'
@@ -283,12 +347,12 @@ class VisitorInterp(JanderVisitor):
         else:
             return ctx.getText()
 
-    def _tipos_compativeis(self, tipo1, tipo2):
+    def _tipos_compativeis(self, tipo1, tipo2, *, int2real= True):
         if 'indefinido' in (tipo1, tipo2):
             return False
         if tipo1 == tipo2:
             return True
-        if {tipo1, tipo2}.issubset({'inteiro', 'real'}):
+        if {tipo1, tipo2}.issubset({'inteiro', 'real'}) and int2real:
             return True
         
         raise AtribuicaoNaoCompativel
@@ -300,7 +364,10 @@ class VisitorInterp(JanderVisitor):
     def visitCorpo(self, ctx):
         # Adiciona o escopo da main ao codigo
         self.simbolos.add_escopo()
-        children_ctx = self.visitChildren(ctx)
+        try:
+            children_ctx = self.visitChildren(ctx)
+        except RetornoInside:
+            pass
         self.simbolos.del_escopo()
         return children_ctx
     

@@ -16,6 +16,9 @@ class IncompatibilidadeDeParametros(Exception):
 class ComandoRetorneNaoPermitido(Exception):
     pass
 
+class RetornoInside(Exception):
+    pass
+
 class Simbolos:
     '''
     Classe que armazena e faz verificações dos siumbolos nos diferentes escopos
@@ -52,7 +55,17 @@ class Simbolos:
         self.__escopos[-1] |= {identificador: {'tipo': tipo, 
                                                'is_constante': is_constante,
                                                'valor': valor}}
+    
+    def add_func(self,
+                 identificador: str,
+                 tipo: str,
+                 params: dict[str, str]) -> None:
         
+        self.__escopos[-1] |= {identificador: {'tipo': tipo, 
+                                               'params': params}}
+        
+        
+
     def add_tipo(self, nome_tipo: str, tipo: str):
         self.__tipos.append(tipo)
         self.__escopos[-1] |= {nome_tipo: {'tipo': tipo}}

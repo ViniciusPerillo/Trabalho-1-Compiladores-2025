@@ -151,7 +151,7 @@ parcela
 
 parcela_unario
     : '^'? identificador
-    | IDENT '(' expressao (',' expressao)* ')'
+    | cmdChamada
     | NUM_INT
     | NUM_REAL
     | '(' expressao ')';

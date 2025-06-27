@@ -17,7 +17,9 @@ class ComandoRetorneNaoPermitido(Exception):
     pass
 
 class RetornoInside(Exception):
-    pass
+    def __init__(self, ctx, *args):
+        super().__init__(*args)
+        self.ctx = ctx
 
 class Simbolos:
     '''
@@ -25,12 +27,14 @@ class Simbolos:
     '''
     def __init__(self):
         self.__escopos = []
+        self.__escopos_global_reservado = dict()
         self.__tipos = []
         self.__add_escopo()
         self.__add_tipo('literal', 'literal')
         self.__add_tipo('inteiro', 'inteiro')
         self.__add_tipo('real', 'real')
         self.__add_tipo('logico', 'logico')
+        self.__add_tipo('registro', 'registro')
     
     def add_escopo(self):
         self.__escopos.append(dict())
@@ -39,11 +43,15 @@ class Simbolos:
         self.__escopos.pop()
 
     def __getitem__(self, key):
-        for scp in reversed(self.__escopos):
-            try:
-                return scp[key]
-            except KeyError:
-                pass
+        key = key.lstrip('^')
+        try:
+            return self.__escopos_global_reservado[key]
+        except KeyError:
+            for scp in reversed(self.__escopos):
+                try:
+                    return scp[key]
+                except KeyError:
+                    pass
         
         raise IdentificadorNaoDeclarado
     
@@ -52,16 +60,20 @@ class Simbolos:
                 tipo: str, 
                 valor, is_constante: bool) -> None:
         
-        self.__escopos[-1] |= {identificador: {'tipo': tipo, 
-                                               'is_constante': is_constante,
-                                               'valor': valor}}
+        var = {identificador: {'tipo': tipo, 
+                                'is_constante': is_constante,
+                                'valor': valor}}
+        if is_constante:
+            self.__escopos_global_reservado |= var
+        else:
+            self.__escopos[-1] |= var
     
     def add_func(self,
                  identificador: str,
                  tipo: str,
                  params: dict[str, str]) -> None:
         
-        self.__escopos[-1] |= {identificador: {'tipo': tipo, 
+        self.__escopos_global_reservado |= {identificador: {'tipo': tipo, 
                                                'params': params}}
         
         
@@ -72,9 +84,14 @@ class Simbolos:
 
     def verifSimbolNesseEscopo(self, simbolo: str):
         try:
-            self.__escopos[-1][simbolo]
+            self.__escopos_global_reservado[simbolo]
         except KeyError:
-            pass
+            try:
+                self.__escopos[-1][simbolo]
+            except KeyError:
+                pass
+            else:
+                raise IdentificadorJaUtilizadoNoEscopo
         else:
             raise IdentificadorJaUtilizadoNoEscopo
 

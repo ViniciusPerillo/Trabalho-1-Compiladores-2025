@@ -11,6 +11,7 @@ class VisitorInterp(JanderVisitor):
     def __init__(self, output: StringIO):
         super().__init__()
         self.out = output
+        self.retorno = False
 
     def visitInit(self, ctx):
         self.simbolos = Simbolos()
@@ -22,46 +23,58 @@ class VisitorInterp(JanderVisitor):
     def error(self, line, msg, erro):
         match erro:
             # TipoNaoDeclarado
-            case 1: print(f"Linha {line}: tipo {msg} nao declarado", file=self.out)
+            case 1: print(f"Linha {line}: tipo {msg} nao declarado", file=self.out, flush= True)
             # IdentificadorNaoDeclarado
-            case 2: print(f"Linha {line}: identificador {msg} nao declarado", file=self.out)
+            case 2: print(f"Linha {line}: identificador {msg} nao declarado", file=self.out, flush= True)
             # IdentificadorJaUtilizadoNoEscopo
-            case 3: print(f"Linha {line}: identificador {msg} ja declarado anteriormente", file=self.out)
+            case 3: print(f"Linha {line}: identificador {msg} ja declarado anteriormente", file=self.out, flush= True)
             # AtribuicaoNaoCompativel
-            case 4: print(f"Linha {line}: atribuicao nao compativel para {msg}", file=self.out)
+            case 4: print(f"Linha {line}: atribuicao nao compativel para {msg}", file=self.out, flush= True)
             # IncompatibilidadeDeParametros
-            case 5: print(f"Linha {line}: incompatibilidade de parametros na chamada de {msg}", file=self.out)
+            case 5: print(f"Linha {line}: incompatibilidade de parametros na chamada de {msg}", file=self.out, flush= True)
             # ComandoRetorneNaoPermitido
-            case 6: print(f"Linha {line}: comando retorne nao permitido nesse escopo", file=self.out)
+            case 6: print(f"Linha {line}: comando retorne nao permitido nesse escopo", file=self.out, flush= True)
             # Retorne incompativel
-            case 7: print(f"Linha {line}: comando retorne nao permitido nesse escopo", file=self.out)
+            case 7: print(f"Linha {line}: comando retorne nao permitido nesse escopo", file=self.out, flush= True)
             # Tipos de paarametro incompativeis
-            case 8: print(f"Linha {line}: incompatibilidade de parametros na chamada de {msg}", file=self.out)
+            case 8: print(f"Linha {line}: incompatibilidade de parametros na chamada de {msg}", file=self.out, flush= True)
 
     '''
     Visitors
     '''
     def visitDeclaracao_local(self, ctx):        
+        
         if ctx.IDENT():
             ident = ctx.IDENT().getText()
-            tipo = ctx.tipo().getText().lstrip('^') if ctx.tipo() else None
-            print(ident + " decl")
+            if ctx.tipo():
+                tipo = ctx.tipo().getText().lstrip('^')
+                tipo = self.visitTipo(ctx.tipo())
+            elif ctx.tipo_basico():
+                tipo = ctx.tipo_basico().getText()
+                try:
+                    self.simbolos.verifType(tipo)
+                except TipoNaoDeclarado:
+                    self.error(ctx.start.line, tipo, 1)
+                    tipo = 'indefinido'
 
-            try:
-                self.simbolos.verifType(tipo)
-            except TipoNaoDeclarado:
-                self.error(ctx.start.line, tipo, 1)
-                tipo = 'indefinido'
+            else:
+                tipo = None
 
             try:
                 self.simbolos.verifSimbolNesseEscopo(ident)
             except IdentificadorJaUtilizadoNoEscopo:
-                self.error(ctx.start.line, ident, 2)
+                self.error(ctx.start.line, ident, 3)
 
-            if (ctx.tipo().getText().startswith("^")): tipo = "^" + tipo
+            
+            
 
-            self.simbolos.add_var(ident, tipo, None, is_constante=False)
-            print(ident)
+            if ctx.tipo(): 
+                if (ctx.tipo().getText().startswith("^")): tipo = "^" + tipo
+                self.simbolos.add_tipo(ident, tipo)
+            else:
+                self.simbolos.add_var(ident, tipo, None, is_constante=(ctx.tipo_basico() is not None))
+        else:
+            pass
 
         return self.visitChildren(ctx)
     
@@ -79,7 +92,8 @@ class VisitorInterp(JanderVisitor):
 
         for param in params:
             param_idents = param.identificador()
-            param_tipo = param.tipo_estendido().getText()
+            param_name_tipo = param.tipo_estendido().getText()
+            param_tipo = self.simbolos[param_name_tipo]['tipo']
 
             for param_ident in param_idents:
                 params_dict |= {param_ident.getText(): param_tipo}
@@ -87,18 +101,26 @@ class VisitorInterp(JanderVisitor):
         self.simbolos.add_func(ident, tipo, params_dict)
         self.simbolos.add_escopo()
 
-        for param in params:
-            param_idents = param.identificador()
-            param_tipo = param.tipo_estendido().getText()
+        for param_name, param_tipo in params_dict.items():
+            if isinstance(param_tipo, dict):
+                for campo, tipo_campo in param_tipo.items():
+                    nome_completo = f"{param_ident.getText()}.{campo}"
+                    try:
+                        self.simbolos.add_var(nome_completo, tipo_campo, None, False)
+                    except IdentificadorJaUtilizadoNoEscopo:
+                        self.error(self, ident.start.line, nome_completo, 3)
+            else:
+                self.simbolos.add_var(param_name, param_tipo, None, False)
 
-            for param_ident in param_idents:
-                self.simbolos.add_var(param_ident.getText(), param_tipo, None, False)
 
-        try:
-            children_ctx = self.visitChildren(ctx)
-        except RetornoInside:
+
+        children_ctx = self.visitChildren(ctx)
+        
+        if self.retorno:
             if tipo is None:
-                self.error(ctx, erro= 7)
+                self.error(self.retorno, msg='', erro= 7)
+            self.retorno = False
+              
         self.simbolos.del_escopo()
 
         return children_ctx
@@ -110,75 +132,98 @@ class VisitorInterp(JanderVisitor):
         
         for ident in idents:
             print(ident.getText() + " var ")
+            if ident.dimensao().exp_aritmetica():
+                ident = ident.IDENT()[0]
 
             # se for registro de registro
-            if isinstance(tipo, dict):
-                for campo, tipo_campo in tipo.items():
-                    nome_completo = f"{ident.getText()}.{campo}"
-                    try:
-                        self.simbolos.add_var(nome_completo, tipo_campo, None, False)
-                    except IdentificadorJaUtilizadoNoEscopo:
-                        self.error(self, ident.start.line, nome_completo, 3)
-
-                self.simbolos.add_tipo(ident, tipo)
-            # se não
+            try:
+                self.simbolos.verifSimbolNesseEscopo(ident.getText())
+            except IdentificadorJaUtilizadoNoEscopo:
+                self.error(ident.start.line, ident.getText(), 3)
             else:
-                try:
-                    self.simbolos.verifSimbolNesseEscopo(ident.getText())
-                except IdentificadorJaUtilizadoNoEscopo:
-                    self.error(ident.start.line, ident.getText(), 3)
-                    pass
+            
+                if isinstance(tipo, dict):
+                    for campo, tipo_campo in tipo.items():
+                        nome_completo = f"{ident.getText()}.{campo}"
+                        try:
+                            self.simbolos.verifType(tipo_campo)
+                        except TipoNaoDeclarado:
+                            self.error(ctx.start.line, tipo, 1)
+                            tipo_campo = 'invalido'
+                        
+                        try:
+                            self.simbolos.add_var(nome_completo, tipo_campo, None, False)
+                        except IdentificadorJaUtilizadoNoEscopo:
+                            self.error(self, ident.start.line, nome_completo, 3)
+                else:
+                    try:
+                        self.simbolos.verifType(tipo)
+                    except TipoNaoDeclarado:
+                        self.error(ctx.start.line, tipo, 1)
+                        tipo = 'invalido'
+                    
                 
-                try:
-                    self.simbolos.verifType(tipo)
-                except TipoNaoDeclarado:
-                    line = ctx.tipo().tipo_estendido().tipo_basico_ident().IDENT().symbol.line if ctx.tipo().tipo_estendido().tipo_basico_ident().IDENT().symbol.line else ctx.tipo().tipo_estendido().IDENT().symbol.line
-                    self.error(ctx.tipo().tipo_estendido().tipo_basico_ident().IDENT().symbol.line, tipo, 1)
-                    tipo = 'invalido'
+                
 
-            if (ctx.tipo().getText().startswith("^")): tipo = "^" + tipo
+                if (ctx.tipo().getText().startswith("^")): tipo = "^" + tipo
 
-            self.simbolos.add_var(ident.getText(), tipo, None, False)
+                self.simbolos.add_var(ident.getText(), tipo, None, False)
 
         return self.visitChildren(ctx)
     
+
+        
     
     #
     def visitCmdAtribuicao(self, ctx):
-        ident = ctx.identificador().getText().lstrip('^')
+        ident = ctx.identificador()
+        
+        if ident.dimensao().exp_aritmetica():
+            ident = ident.IDENT()[0].getText().lstrip('^')
+        else:
+            ident = ident.getText().lstrip('^')
+        
 
         try:
             simbolo = self.simbolos[ident]
         except IdentificadorNaoDeclarado:
             self.error(ctx.start.line, ident, 2)
-            return self.visitChildren(ctx)
+        else:
+        
+            if not isinstance(simbolo['tipo'], dict):
+                if (simbolo['tipo'].startswith("^")):
+                    if(ctx.PONTEIRO()):
+                        try:
+                            expressaoTipo = self._avaliar_expressao(ctx.expressao())
+                            self._tipos_compativeis(simbolo['tipo'].lstrip('^'), expressaoTipo)
+                        except AtribuicaoNaoCompativel:
+                            self.error(ctx.start.line, '^' + ctx.identificador().getText(), 4)
 
-        if (simbolo['tipo'].startswith("^")):
-            if(ctx.PONTEIRO()):
-                try:
-                    expressaoTipo = self._avaliar_expressao(ctx.expressao())
-                    self._tipos_compativeis(simbolo['tipo'].lstrip('^'), expressaoTipo)
-                except AtribuicaoNaoCompativel:
-                    self.error(ctx.start.line, '^' + ctx.identificador().getText(), 4)
+                    else:
+                        if not ctx.expressao().getText().startswith('&'):
+                            self.error(ctx.start.line, ident.getText(), 4)
+                        else:
+                            try:
+                                expressao = self.simbolos[ctx.expressao().getText().lstrip('&')]
+                                self._tipos_compativeis(simbolo['tipo'].lstrip('^'), expressao['tipo'])
 
-            else:
-                if not ctx.expressao().getText().startswith('&'):
-                    self.error(ctx.start.line, ident, 4)
+                            except AtribuicaoNaoCompativel:
+                                self.error(ctx.start.line, ctx.identificador().getText(), 4)
+
+
                 else:
                     try:
-                        expressao = self.simbolos[ctx.expressao().getText().lstrip('&')]
-                        self._tipos_compativeis(simbolo['tipo'].lstrip('^'), expressao['tipo'])
-
+                        expressaoTipo = self._avaliar_expressao(ctx.expressao())
+                        self._tipos_compativeis(simbolo['tipo'], expressaoTipo)
                     except AtribuicaoNaoCompativel:
                         self.error(ctx.start.line, ctx.identificador().getText(), 4)
-
-
-        else:
-            try:
-                expressaoTipo = self._avaliar_expressao(ctx.expressao())
-                self._tipos_compativeis(simbolo['tipo'], expressaoTipo)
-            except AtribuicaoNaoCompativel:
-                self.error(ctx.start.line, ident, 4)
+                
+            else:
+                try:
+                    expressaoTipo = self._avaliar_expressao(ctx.expressao())
+                    self._tipos_compativeis(simbolo['tipo'], expressaoTipo)
+                except AtribuicaoNaoCompativel:
+                    self.error(ctx.start.line, ident, 4)
 
 
         return self.visitChildren(ctx)
@@ -187,7 +232,10 @@ class VisitorInterp(JanderVisitor):
     def visitCmdLeia(self, ctx):
         idents = ctx.identificador()
         
+        
         for ident in idents:
+            if ident.dimensao().exp_aritmetica():
+                ident = ident.IDENT()[0]
             try:
                 self.simbolos[ident.getText()]
             except IdentificadorNaoDeclarado:
@@ -216,12 +264,16 @@ class VisitorInterp(JanderVisitor):
 
         for idx, param in enumerate(params.values()):
             try:
-                self._tipos_compativeis(self._avaliar_expressao(exprs[idx]), param, int2real= False)
+                expr = exprs[idx]
+                self._tipos_compativeis(self._avaliar_expressao(expr), param, int2real= False)
             except (AtribuicaoNaoCompativel, IndexError):
                 self.error(ctx.start.line, ident, 8)
         
         return self.visitChildren(ctx)
-
+    
+    def visitCmdRetorne(self, ctx):
+        self.retorno = ctx.start.line 
+    
     def _avaliar_expressao(self, ctx):  
 
         termos = []
@@ -259,7 +311,7 @@ class VisitorInterp(JanderVisitor):
         for idx, tipo in enumerate(tipos[1:]):
             self._tipos_compativeis(tipos[idx], tipo)
 
-        return tipos[0]
+        return tipos[0] if len(tipos) == 1 else 'logico' 
 
     def _avaliar_exp_aritmetica(self, ctx):
         tipos = [self._avaliar_termo(t) for t in ctx.termo()]
@@ -301,14 +353,13 @@ class VisitorInterp(JanderVisitor):
             if p.NUM_REAL():
                 return 'real'
             if p.expressao():
-                return self._avaliar_expressao(p.expressao(0))
+                return self._avaliar_expressao(p.expressao())
             if p.identificador():
-                ident = p.identificador().getText()
-                try:
-                    self.simbolos[ident]
-                except IdentificadorNaoDeclarado:
-                    self.error(ident.start.line, ident.getText(), 2)
-                return self._tipo_identificador(ident, ctx)
+                ident = p.identificador()
+                if ident.dimensao().exp_aritmetica():
+                    ident = ident.IDENT()[0]
+                name = ident.getText() 
+                return self._tipo_identificador(name, ctx)
 
         return 'indefinido'
 
@@ -345,7 +396,8 @@ class VisitorInterp(JanderVisitor):
                     campos[nome_campo] = tipo_campo
             return campos 
         else:
-            return ctx.getText()
+            name = ctx.getText()
+            return self.simbolos[name]['tipo']
 
     def _tipos_compativeis(self, tipo1, tipo2, *, int2real= True):
         if 'indefinido' in (tipo1, tipo2):
@@ -364,10 +416,12 @@ class VisitorInterp(JanderVisitor):
     def visitCorpo(self, ctx):
         # Adiciona o escopo da main ao codigo
         self.simbolos.add_escopo()
-        try:
-            children_ctx = self.visitChildren(ctx)
-        except RetornoInside:
-            pass
+
+        children_ctx = self.visitChildren(ctx)
+        if self.retorno:
+            self.error(self.retorno, msg= '', erro= 7)
+            self.retorno = False
+
         self.simbolos.del_escopo()
         return children_ctx
     

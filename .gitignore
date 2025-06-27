@@ -1,10 +1,8 @@
 .venv
 .vscode
 __pycache__/
-
 Jander*
 !Jander.g4
-
 *teste*
 antlr*
 output*

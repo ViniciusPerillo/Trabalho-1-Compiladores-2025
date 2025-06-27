@@ -71,6 +71,7 @@ class JanderParserError(ErrorListener):
 
 
 def main(argv):
+    print(argv[1])
     input_stream = FileStream(argv[1], encoding="utf-8")
     output_path = argv[2]
 
@@ -121,7 +122,7 @@ def tester(argv):
             
 # Código para teste em massa de todos os casos
 def run():
-    root = 'D:\\gitRep\\Trabalho-1-Compiladores-2025\\T3\\casos_teste\\'
+    root = 'D:\\gitRep\\Trabalho-1-Compiladores-2025\\T4\\casos_teste\\entrada\\'
     for case in sorted(os.listdir(root)):
         args = [None, root + case, 'output.txt']
         print(case)
